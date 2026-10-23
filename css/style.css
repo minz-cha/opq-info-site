@@ -341,3 +341,58 @@ article h2 {
 .body tbody tr:nth-child(even) {
   background: var(--bg);
 }
+
+.body ol {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+.body li > p {
+  margin: 2px 0;
+}
+.body ul ul,
+.body ol ol,
+.body ul ol,
+.body ol ul {
+  margin: 2px 0;
+}
+.body pre {
+  background: var(--bg);
+  border: 1px solid var(--bd);
+  padding: 10px 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.body pre code {
+  background: none;
+  padding: 0;
+}
+.body hr {
+  border: 0;
+  border-top: 1px solid var(--bd);
+  margin: 16px 0;
+}
+.body details {
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  padding: 6px 12px;
+  margin: 8px 0;
+}
+.body summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.body del {
+  color: var(--mu);
+}
+
+.tag {
+  --h: 235;
+  background: hsl(var(--h) 85% 92%);
+  color: hsl(var(--h) 60% 34%);
+}
+@media (prefers-color-scheme: dark) {
+  .tag {
+    background: hsl(var(--h) 40% 24%);
+    color: hsl(var(--h) 85% 80%);
+  }
+}

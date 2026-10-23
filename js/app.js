@@ -58,7 +58,7 @@ function table(rows) {
     "</tbody></table></div>"
   );
 }
-function md(src) {
+function mdBasic(src) {
   let h = "",
     ul = false;
   const cl = () => {
@@ -101,6 +101,27 @@ function md(src) {
   }
   cl();
   return h;
+}
+
+/* 정식 마크다운 (marked) + 안전 처리 (DOMPurify). 라이브러리 로드 실패 시 mdBasic 으로 대체 */
+function md(src) {
+  if (!window.marked || !window.DOMPurify) return mdBasic(src);
+  const html = DOMPurify.sanitize(marked.parse(src, { gfm: true, breaks: true }));
+  const t = document.createElement("template");
+  t.innerHTML = html;
+  t.content.querySelectorAll("th").forEach((th) => th.setAttribute("data-sort", ""));
+  t.content.querySelectorAll("table").forEach((tb) => {
+    const w = document.createElement("div");
+    w.className = "tw";
+    tb.replaceWith(w);
+    w.appendChild(tb);
+  });
+  t.content.querySelectorAll("a").forEach((x) => {
+    x.target = "_blank";
+    x.rel = "noopener";
+  });
+  t.content.querySelectorAll("img").forEach((x) => (x.loading = "lazy"));
+  return t.innerHTML;
 }
 
 /* ---------- GitHub API ---------- */
@@ -199,6 +220,11 @@ function ask(label, val = "", type = "text") {
 
 /* ---------- 렌더 ---------- */
 const cn = (id) => (D.cats.find((c) => c.id === id) || { name: "기타" }).name;
+const HUES = [235, 150, 25, 330, 190, 45, 280, 0, 100, 210];
+const tag = (id) => {
+  const i = D.cats.findIndex((c) => c.id === id);
+  return `<span class="tag" style="--h:${HUES[(i < 0 ? 0 : i) % HUES.length]}">${esc(cn(id))}</span>`;
+};
 const list = () =>
   D.posts
     .filter((p) => (cat === "all" || p.cat === cat) && (!kw || (p.title + p.body).toLowerCase().includes(kw)))
@@ -222,16 +248,17 @@ function render() {
   if (admin)
     o += `<div class="adm"><b>관리자 모드</b><button class="p" data-a="new">+ 새 글</button><button data-a="ac">+ 카테고리</button><button data-a="rt">사이트 제목</button></div>`;
   if (op) {
-    o += `<button data-a="back" style="margin-bottom:10px">← 목록</button><article><span class="tag">${esc(cn(op.cat))}</span><span class="meta">${op.upd}${admin ? ` · ID: ${op.id}` : ""}</span><h2>${esc(op.title)}</h2><div class="body">${md(op.body)}</div>${admin ? `<div class="row"><button data-a="edit" data-id="${op.id}">수정</button></div>` : ""}</article>`;
+    o += `<button data-a="back" style="margin-bottom:10px">← 목록</button><article>${tag(op.cat)}<span class="meta">${op.upd}${admin ? ` · ID: ${op.id}` : ""}</span><h2>${esc(op.title)}</h2><div class="body">${md(op.body)}</div>${admin ? `<div class="row"><button data-a="edit" data-id="${op.id}">수정</button></div>` : ""}</article>`;
   } else {
     const L = list();
     o += L.length
       ? L.map(
           (p) =>
-            `<div class="card" data-a="open" data-id="${p.id}"><h3>${p.pin ? "📌 " : ""}${esc(p.title)}</h3><div class="meta"><span class="tag">${esc(cn(p.cat))}</span>${p.upd}</div><div class="sn">${esc(
+            `<div class="card" data-a="open" data-id="${p.id}"><h3>${p.pin ? "📌 " : ""}${esc(p.title)}</h3><div class="meta">${tag(p.cat)}${p.upd}</div><div class="sn">${esc(
               p.body
                 .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-                .replace(/[#*`>\[\]|]/g, "")
+                .replace(/<[^>]+>/g, " ")
+                .replace(/[#*`>\[\]|~]/g, "")
                 .replace(/-{3,}/g, "")
                 .slice(0, 160),
             )}</div></div>`,
@@ -247,7 +274,7 @@ function editor(id) {
     ? D.posts.find((x) => x.id === id)
     : { id: "", cat: D.cats[0] && D.cats[0].id, title: "", body: "", pin: false };
   $("#box").innerHTML =
-    `<label>제목</label><input type="text" id="et" value="${esc(p.title)}"><label>카테고리</label><select id="ec">${D.cats.map((c) => `<option value="${c.id}" ${c.id === p.cat ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select><label>내용 (# 제목, ## 소제목, - 목록, **굵게**, [링크](주소), &gt; 인용)</label><textarea id="eb">${esc(p.body)}</textarea><div style="margin-top:6px"><button id="eI">🖼 이미지 추가</button> <button id="eT">▦ 표 삽입</button><input type="file" id="ef" accept="image/*" hidden></div><label><input type="checkbox" id="ep" ${p.pin ? "checked" : ""}> 상단 고정</label><div class="row">${id ? '<button class="d" id="eD">삭제</button>' : ""}<button id="eN">취소</button><button class="p" id="eS">저장</button></div>`;
+    `<label>제목</label><input type="text" id="et" value="${esc(p.title)}"><label>카테고리</label><select id="ec">${D.cats.map((c) => `<option value="${c.id}" ${c.id === p.cat ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select><label>내용 (마크다운 지원: # 제목, - 목록, 1. 번호, **굵게**, ~~취소선~~, [링크](주소), &gt; 인용, 줄바꿈 &lt;br/&gt;)</label><textarea id="eb">${esc(p.body)}</textarea><div style="margin-top:6px"><button id="eI">🖼 이미지 추가</button> <button id="eT">▦ 표 삽입</button><input type="file" id="ef" accept="image/*" hidden></div><label><input type="checkbox" id="ep" ${p.pin ? "checked" : ""}> 상단 고정</label><div class="row">${id ? '<button class="d" id="eD">삭제</button>' : ""}<button id="eN">취소</button><button class="p" id="eS">저장</button></div>`;
   $("#modal").className = "on";
   $("#eN").onclick = () => ($("#modal").className = "");
   $("#eI").onclick = () => $("#ef").click();
